@@ -62,7 +62,15 @@ class NoteResponse(BaseModel):
     text: str
 
 def load_config():
-    """Load configuration from JSON file."""
+    """
+    Load configuration from JSON file.
+    
+    Reads configuration from CONFIG_FILE and updates global config dict.
+    Creates default config file if it doesn't exist.
+    
+    Raises:
+        Exception: If config file cannot be read or parsed
+    """
     global config
     try:
         if os.path.exists(CONFIG_FILE):
@@ -75,7 +83,14 @@ def load_config():
         logger.error(f"Config load error: {e}")
 
 def save_config():
-    """Save configuration to JSON file."""
+    """
+    Save configuration to JSON file.
+    
+    Writes current global config dict to CONFIG_FILE in JSON format.
+    
+    Raises:
+        Exception: If config file cannot be written
+    """
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4)
@@ -84,7 +99,16 @@ def save_config():
         logger.error(f"Config save error: {e}")
 
 def save_note(source: str, text: str):
-    """Save note to file."""
+    """
+    Save note to file with timestamp.
+    
+    Args:
+        source (str): Source of the note (e.g., 'OCR', 'Speech')
+        text (str): Text content to save
+    
+    Raises:
+        HTTPException: If note cannot be saved to file
+    """
     try:
         notes_path = Path(config["notes_file"])
         notes_path.parent.mkdir(exist_ok=True)
@@ -101,23 +125,50 @@ def save_note(source: str, text: str):
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize application on startup."""
+    """
+    Initialize application on startup.
+    
+    Loads configuration and performs startup initialization.
+    Called automatically when FastAPI application starts.
+    """
     load_config()
     logger.info("Deaf Helper API started")
 
 @app.get("/")
 async def root():
-    """Root endpoint."""
+    """
+    Root endpoint providing API information.
+    
+    Returns:
+        dict: API name and version information
+    """
     return {"message": "Deaf Helper API", "version": "1.0.0"}
 
 @app.get("/config")
 async def get_config():
-    """Get current configuration."""
+    """
+    Get current application configuration.
+    
+    Returns:
+        dict: Current configuration settings including camera_index,
+              language, notes_file, and tts_enabled
+    """
     return config
 
 @app.put("/config")
 async def update_config(config_update: ConfigUpdate):
-    """Update configuration."""
+    """
+    Update application configuration.
+    
+    Args:
+        config_update (ConfigUpdate): Configuration fields to update
+    
+    Returns:
+        dict: Success message and updated configuration
+    
+    Raises:
+        HTTPException: If configuration update fails
+    """
     try:
         if config_update.camera_index is not None:
             config["camera_index"] = config_update.camera_index
@@ -135,7 +186,18 @@ async def update_config(config_update: ConfigUpdate):
 
 @app.post("/ocr/image")
 async def extract_text_from_image(file: UploadFile = File(...)):
-    """Extract text from uploaded image."""
+    """
+    Extract text from uploaded image using OCR.
+    
+    Args:
+        file (UploadFile): Image file to process (supports common formats)
+    
+    Returns:
+        dict: Extracted text and language used for OCR
+    
+    Raises:
+        HTTPException: If image is invalid or OCR processing fails
+    """
     try:
         # Read image
         contents = await file.read()
@@ -159,7 +221,18 @@ async def extract_text_from_image(file: UploadFile = File(...)):
 
 @app.post("/ocr/base64")
 async def extract_text_from_base64(data: dict):
-    """Extract text from base64 encoded image."""
+    """
+    Extract text from base64 encoded image using OCR.
+    
+    Args:
+        data (dict): Dictionary containing 'image' key with base64 encoded image
+    
+    Returns:
+        dict: Extracted text and language used for OCR
+    
+    Raises:
+        HTTPException: If image data is invalid or OCR processing fails
+    """
     try:
         # Decode base64 image
         image_data = base64.b64decode(data["image"])
@@ -183,7 +256,18 @@ async def extract_text_from_base64(data: dict):
 
 @app.post("/speech/recognize")
 async def recognize_speech(file: UploadFile = File(...)):
-    """Recognize speech from audio file."""
+    """
+    Recognize speech from uploaded audio file.
+    
+    Args:
+        file (UploadFile): Audio file to process (WAV format recommended)
+    
+    Returns:
+        dict: Recognized text and language used for recognition
+    
+    Raises:
+        HTTPException: If audio cannot be understood or processing fails
+    """
     try:
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
@@ -217,7 +301,19 @@ async def recognize_speech(file: UploadFile = File(...)):
 
 @app.post("/tts/generate")
 async def generate_tts(request: TextRequest, background_tasks: BackgroundTasks):
-    """Generate text-to-speech audio."""
+    """
+    Generate text-to-speech audio file.
+    
+    Args:
+        request (TextRequest): Text and language for TTS generation
+        background_tasks (BackgroundTasks): For cleanup of temporary files
+    
+    Returns:
+        FileResponse: MP3 audio file containing synthesized speech
+    
+    Raises:
+        HTTPException: If text is empty or TTS generation fails
+    """
     try:
         if not request.text.strip():
             raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -246,7 +342,18 @@ async def generate_tts(request: TextRequest, background_tasks: BackgroundTasks):
 
 @app.get("/notes")
 async def get_notes(limit: int = 100):
-    """Get recent notes."""
+    """
+    Get recent notes from the notes file.
+    
+    Args:
+        limit (int): Maximum number of recent notes to return (default: 100)
+    
+    Returns:
+        dict: List of notes with timestamp, source, and text
+    
+    Raises:
+        HTTPException: If notes file cannot be read
+    """
     try:
         if not os.path.exists(config["notes_file"]):
             return {"notes": []}
@@ -283,7 +390,15 @@ async def get_notes(limit: int = 100):
 
 @app.delete("/notes")
 async def clear_notes():
-    """Clear all notes."""
+    """
+    Clear all saved notes by deleting the notes file.
+    
+    Returns:
+        dict: Success message confirming notes were cleared
+    
+    Raises:
+        HTTPException: If notes file cannot be deleted
+    """
     try:
         if os.path.exists(config["notes_file"]):
             os.remove(config["notes_file"])
@@ -294,7 +409,12 @@ async def clear_notes():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """
+    Health check endpoint for monitoring API status.
+    
+    Returns:
+        dict: Health status, current timestamp, and configuration
+    """
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -302,7 +422,16 @@ async def health_check():
     }
 
 def cleanup_file(filepath: str):
-    """Clean up temporary file."""
+    """
+    Clean up temporary file after use.
+    
+    Args:
+        filepath (str): Path to the temporary file to delete
+    
+    Note:
+        This function is used as a background task to clean up
+        temporary files created during TTS generation.
+    """
     try:
         if os.path.exists(filepath):
             os.remove(filepath)

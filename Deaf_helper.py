@@ -24,7 +24,18 @@ from kivy.clock import Clock
 from kivy.logger import Logger
 
 def setup_logging():
-    """Setup logging with proper error handling."""
+    """
+    Setup logging with proper error handling.
+    
+    Creates a logs directory and configures logging to both file and console.
+    Falls back to basic logging if file logging fails.
+    
+    Returns:
+        logging.Logger: Configured logger instance
+    
+    Raises:
+        None: Handles all exceptions internally
+    """
     try:
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
@@ -53,7 +64,38 @@ DEFAULT_CONFIG = {
 }
 
 class DeafHelperApp(App):
+    """
+    Main application class for Deaf Helper accessibility tool.
+    
+    Provides real-time OCR from camera feed and speech-to-text conversion
+    with optional text-to-speech playback. Supports Amharic and English languages.
+    
+    Attributes:
+        recognizer (sr.Recognizer): Speech recognition engine
+        language (str): Current language setting (am-ET or en-US)
+        notes_file (str): Path to notes file for saving extracted text
+        tts_enabled (bool): Whether text-to-speech is enabled
+        camera_index (int): Camera device index
+        camera (cv2.VideoCapture): Camera capture object
+        audio_thread (threading.Thread): Thread for audio processing
+        camera_thread (threading.Thread): Thread for camera processing
+        running (bool): General application running state
+        audio_running (bool): Audio processing state
+        camera_running (bool): Camera processing state
+        lock (threading.Lock): Thread synchronization lock
+        temp_files (list): List of temporary files for cleanup
+    """
     def __init__(self, **kwargs):
+        """
+        Initialize the Deaf Helper application.
+        
+        Args:
+            **kwargs: Additional keyword arguments passed to parent App class
+        
+        Raises:
+            ImportError: If required dependencies are missing
+            Exception: If initialization fails
+        """
         super().__init__(**kwargs)
         self.recognizer = sr.Recognizer()
         self.language = DEFAULT_CONFIG["language"]
@@ -79,7 +121,16 @@ class DeafHelperApp(App):
             logger.error(f"Initialization error: {e}")
 
     def load_config(self):
-        """Load configuration from JSON file."""
+        """
+        Load configuration from JSON file.
+        
+        Reads configuration from CONFIG_FILE and updates instance variables.
+        Creates default config file if it doesn't exist. Falls back to
+        default values if config loading fails.
+        
+        Raises:
+            Exception: Logs error but continues with default values
+        """
         try:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -102,7 +153,15 @@ class DeafHelperApp(App):
             self.camera_index = DEFAULT_CONFIG["camera_index"]
 
     def check_dependencies(self):
-        """Verify required dependencies."""
+        """
+        Verify required dependencies are installed.
+        
+        Checks for all required Python modules and raises ImportError
+        if any are missing.
+        
+        Raises:
+            ImportError: If any required dependencies are missing
+        """
         missing_deps = []
         required_modules = ["cv2", "speech_recognition", "pyaudio", "pytesseract", "gtts", "pygame"]
         
@@ -119,7 +178,18 @@ class DeafHelperApp(App):
             raise ImportError(error_msg)
 
     def build(self):
-        """Initialize the Kivy UI."""
+        """
+        Initialize the Kivy user interface.
+        
+        Creates and configures all UI widgets including language selector,
+        camera display, result text area, and control buttons.
+        
+        Returns:
+            BoxLayout: Root layout widget containing all UI elements
+        
+        Raises:
+            Exception: If UI construction fails
+        """
         try:
             self.layout = BoxLayout(orientation="vertical", padding=20, spacing=15)
 
@@ -177,12 +247,29 @@ class DeafHelperApp(App):
             raise
 
     def set_language(self, spinner, text):
-        """Set the application language."""
+        """
+        Set the application language based on spinner selection.
+        
+        Args:
+            spinner (Spinner): The language selection spinner widget
+            text (str): Selected language text ("Amharic" or "English")
+        """
         self.language = "am-ET" if text == "Amharic" else "en-US"
         logger.info("Language changed to %s", self.language)
 
     def start_camera(self):
-        """Initialize the camera."""
+        """
+        Initialize and configure the camera for video capture.
+        
+        Sets up camera with optimal settings for performance and
+        text extraction.
+        
+        Returns:
+            bool: True if camera initialized successfully, False otherwise
+        
+        Raises:
+            Exception: Logs error if camera initialization fails
+        """
         try:
             if self.camera:
                 self.camera.release()
@@ -205,7 +292,12 @@ class DeafHelperApp(App):
             return False
     
     def toggle_camera(self, instance):
-        """Toggle camera processing."""
+        """
+        Toggle camera processing on/off.
+        
+        Args:
+            instance (Button): The camera button widget that triggered this event
+        """
         if self.camera_btn.text == "Start Camera":
             if self.start_camera():
                 self.camera_running = True
@@ -222,7 +314,19 @@ class DeafHelperApp(App):
             self.update_status("Camera stopped")
 
     def update_camera(self, dt):
-        """Update camera feed and extract text."""
+        """
+        Update camera feed and perform OCR text extraction.
+        
+        Called periodically by Kivy Clock to update the camera display
+        and extract text from frames. Optimized to perform OCR only
+        every 5th frame for better performance.
+        
+        Args:
+            dt (float): Delta time since last call (from Kivy Clock)
+        
+        Returns:
+            bool: True to continue scheduling, False to stop
+        """
         if not self.camera_running or not self.camera:
             return False
         
@@ -256,7 +360,15 @@ class DeafHelperApp(App):
             return False
     
     def _extract_text_async(self, frame):
-        """Extract text from frame asynchronously."""
+        """
+        Extract text from camera frame asynchronously using OCR.
+        
+        Runs in separate thread to avoid blocking the UI. Filters out
+        noise by requiring minimum text length.
+        
+        Args:
+            frame (numpy.ndarray): Camera frame to process
+        """
         try:
             lang_code = "amh" if self.language == "am-ET" else "eng"
             text = pytesseract.image_to_string(frame, lang=lang_code).strip()
@@ -267,14 +379,24 @@ class DeafHelperApp(App):
             logger.error(f"Text extraction error: {e}")
 
     def start_audio_thread(self):
-        """Start audio processing in a separate thread."""
+        """
+        Start audio processing in a separate daemon thread.
+        
+        Creates and starts a new thread for continuous audio processing
+        if one is not already running.
+        """
         if not self.audio_thread or not self.audio_thread.is_alive():
             self.audio_thread = threading.Thread(target=self.audio_loop, daemon=True)
             self.audio_thread.start()
             logger.info("Audio thread started")
 
     def toggle_audio(self, instance):
-        """Toggle audio processing."""
+        """
+        Toggle audio processing on/off.
+        
+        Args:
+            instance (Button): The audio button widget that triggered this event
+        """
         if self.audio_btn.text == "Start Audio":
             self.audio_running = True
             self.audio_btn.text = "Stop Audio"
@@ -286,7 +408,15 @@ class DeafHelperApp(App):
             self.update_status("Audio stopped")
 
     def audio_loop(self):
-        """Real-time audio processing loop."""
+        """
+        Real-time audio processing loop for speech recognition.
+        
+        Continuously listens for audio input and converts speech to text
+        using Google Speech Recognition API. Handles various exceptions
+        gracefully and includes retry logic for API errors.
+        
+        Runs in separate thread to avoid blocking the UI.
+        """
         try:
             with sr.Microphone() as source:
                 self.recognizer.adjust_for_ambient_noise(source, duration=1)
@@ -325,7 +455,16 @@ class DeafHelperApp(App):
                 time.sleep(1)
 
     def play_tts(self, text):
-        """Play text-to-speech if enabled."""
+        """
+        Play text-to-speech audio if TTS is enabled.
+        
+        Generates speech audio from text using gTTS and plays it using pygame.
+        Runs in background without blocking the UI. Automatically cleans up
+        temporary audio files.
+        
+        Args:
+            text (str): Text to convert to speech (limited to 200 characters)
+        """
         if not self.tts_enabled or len(text.strip()) < 3:
             return
             
@@ -358,7 +497,12 @@ class DeafHelperApp(App):
                 threading.Timer(10.0, self._cleanup_temp_file, args=(temp_file,)).start()
     
     def _cleanup_temp_file(self, filepath):
-        """Clean up temporary file."""
+        """
+        Clean up temporary file after use.
+        
+        Args:
+            filepath (str): Path to temporary file to delete
+        """
         try:
             if os.path.exists(filepath):
                 os.remove(filepath)
@@ -368,7 +512,20 @@ class DeafHelperApp(App):
             logger.error(f"Temp file cleanup error: {e}")
 
     def save_note(self, source, text):
-        """Save extracted text to notes file with thread safety."""
+        """
+        Save extracted text to notes file with thread safety.
+        
+        Appends timestamped notes to the configured notes file.
+        Uses file locking to ensure thread safety when multiple
+        sources are writing simultaneously.
+        
+        Args:
+            source (str): Source of the text (e.g., 'Camera', 'Audio')
+            text (str): Text content to save
+        
+        Raises:
+            Exception: Logs error if file writing fails
+        """
         if not text or len(text.strip()) < 3:
             return
             
@@ -389,25 +546,45 @@ class DeafHelperApp(App):
             logger.error(f"Save note error: {e}")
     
     def update_status(self, message):
-        """Update status message safely."""
+        """
+        Update status message in the UI safely.
+        
+        Args:
+            message (str): Status message to display
+        """
         if self.result_label:
             current_text = self.result_label.text
             self.result_label.text = f"Status: {message}\n{current_text[:500]}"
     
     def update_result(self, message):
-        """Update result display safely."""
+        """
+        Update result display with new text safely.
+        
+        Args:
+            message (str): Result message to display
+        """
         if self.result_label:
             current_text = self.result_label.text
             self.result_label.text = f"{message}\n{current_text[:800]}"
     
     def stop_app(self, instance):
-        """Properly stop the application."""
+        """
+        Properly stop the application and clean up resources.
+        
+        Args:
+            instance (Button): The exit button widget that triggered this event
+        """
         logger.info("Stopping application...")
         self.cleanup()
         self.stop()
     
     def cleanup(self):
-        """Clean up resources."""
+        """
+        Clean up all resources before application shutdown.
+        
+        Stops all threads, releases camera, closes audio mixer,
+        and removes temporary files.
+        """
         try:
             self.audio_running = False
             self.camera_running = False
@@ -433,7 +610,12 @@ class DeafHelperApp(App):
             logger.error(f"Cleanup error: {e}")
     
     def on_stop(self):
-        """Called when app is closing."""
+        """
+        Called when the Kivy application is closing.
+        
+        Ensures proper cleanup of resources when the application
+        is terminated.
+        """
         self.cleanup()
         except Exception as e:
             logger.error("Note save error: %s", str(e))
@@ -448,9 +630,12 @@ class DeafHelperApp(App):
         App.get_running_app().stop()
 
 if __name__ == "__main__":
-    DeafHelperApp().run()
-
-if __name__ == "__main__":
+    """
+    Main entry point for the Deaf Helper application.
+    
+    Initializes and runs the application with proper error handling
+    for keyboard interrupts and unexpected exceptions.
+    """
     try:
         app = DeafHelperApp()
         app.run()
