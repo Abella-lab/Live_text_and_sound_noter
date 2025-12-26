@@ -37,4 +37,6 @@ mkdir -p logs
 echo "Setup complete!"
 echo "To run the application:"
 echo "1. Activate virtual environment: source deaf_helper_env/bin/activate"
-echo "2. Run application: python Deaf_helper.py"
+echo "2. Run GUI application: python Deaf_helper.py"
+echo "3. Run API server: python api.py (or uvicorn api:app --reload)"
+echo "4. API documentation: http://localhost:8000/docs"

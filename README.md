@@ -60,12 +60,14 @@ chmod +x setup.sh
 
 ## Usage
 
+### GUI Application
+
 1. **Activate virtual environment:**
    ```bash
    source deaf_helper_env/bin/activate
    ```
 
-2. **Run the application:**
+2. **Run the GUI application:**
    ```bash
    python Deaf_helper.py
    ```
@@ -75,6 +77,31 @@ chmod +x setup.sh
    - Click "Start Camera" to begin text extraction from video
    - Click "Start Audio" to begin speech recognition
    - All extracted text is automatically saved to `notes.txt`
+
+### API Server
+
+1. **Start the API server:**
+   ```bash
+   python api.py
+   # or
+   uvicorn api:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+2. **API Documentation:**
+   - Interactive docs: http://localhost:8000/docs
+   - OpenAPI spec: http://localhost:8000/openapi.json
+
+3. **API Endpoints:**
+   - `GET /` - Root endpoint
+   - `GET /config` - Get configuration
+   - `PUT /config` - Update configuration
+   - `POST /ocr/image` - Extract text from uploaded image
+   - `POST /ocr/base64` - Extract text from base64 image
+   - `POST /speech/recognize` - Recognize speech from audio file
+   - `POST /tts/generate` - Generate text-to-speech audio
+   - `GET /notes` - Get recent notes
+   - `DELETE /notes` - Clear all notes
+   - `GET /health` - Health check
 
 ## Configuration
 
