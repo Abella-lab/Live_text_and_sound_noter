@@ -63,7 +63,6 @@ class NoteResponse(BaseModel):
 
 def load_config():
     """Load configuration from JSON file."""
-    global config
     try:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:

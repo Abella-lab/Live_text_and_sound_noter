@@ -435,20 +435,6 @@ class DeafHelperApp(App):
     def on_stop(self):
         """Called when app is closing."""
         self.cleanup()
-        except Exception as e:
-            logger.error("Note save error: %s", str(e))
-            self.result_label.text = f"Note Save Error: {str(e)}"
-
-    def stop_app(self, instance):
-        """Cleanly exit the application."""
-        self.running = False
-        if self.camera:
-            self.camera.release()
-        logger.info("Application stopped")
-        App.get_running_app().stop()
-
-if __name__ == "__main__":
-    DeafHelperApp().run()
 
 if __name__ == "__main__":
     try:
