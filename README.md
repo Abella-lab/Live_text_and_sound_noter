@@ -60,6 +60,28 @@ chmod +x setup.sh
 
 ## Usage
 
+### GitHub Actions CI/CD
+
+The project includes automated CI/CD pipeline with:
+- **Testing**: Multi-version Python testing (3.8-3.11)
+- **Security**: Bandit and Safety security scans
+- **Code Quality**: Flake8 linting and Black formatting
+- **Docker**: Automated container builds
+- **Deployment**: Production deployment pipeline
+
+### Docker Deployment
+
+1. **Build and run with Docker:**
+   ```bash
+   docker build -t deaf-helper .
+   docker run -p 8000:8000 deaf-helper
+   ```
+
+2. **Use Docker Compose:**
+   ```bash
+   docker-compose up -d
+   ```
+
 ### GUI Application
 
 1. **Activate virtual environment:**
@@ -103,6 +125,18 @@ chmod +x setup.sh
    - `DELETE /notes` - Clear all notes
    - `GET /health` - Health check
 
+### Testing
+
+1. **Run tests:**
+   ```bash
+   pytest tests/ -v
+   ```
+
+2. **Run with coverage:**
+   ```bash
+   pytest tests/ --cov=. --cov-report=html
+   ```
+
 ## Configuration
 
 Edit `config.json` to customize settings:
@@ -118,6 +152,19 @@ Edit `config.json` to customize settings:
 
 ## Production Deployment
 
+### GitHub Actions Setup
+
+1. **Required Secrets:**
+   - `DOCKER_USERNAME`: Docker Hub username
+   - `DOCKER_PASSWORD`: Docker Hub password
+
+2. **Workflow Features:**
+   - Automated testing on multiple Python versions
+   - Security scanning with Bandit and Safety
+   - Code quality checks with Flake8 and Black
+   - Docker image building and pushing
+   - Production deployment pipeline
+
 ### Key Improvements Made:
 
 1. **Thread Safety**: Added locks and proper thread management
@@ -128,6 +175,8 @@ Edit `config.json` to customize settings:
 6. **Logging**: Structured logging with file rotation
 7. **Configuration**: Robust config loading with fallbacks
 8. **Dependencies**: Proper dependency checking and validation
+9. **CI/CD**: Complete GitHub Actions pipeline
+10. **Containerization**: Docker support with health checks
 
 ### Security Considerations:
 
